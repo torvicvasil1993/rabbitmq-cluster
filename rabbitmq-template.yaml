@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+spec:
+  ports:
+  - name: amqp
+    port: 5672
+    targetPort: 5672
+  - name: management
+    port: 15672
+    targetPort: 15672
+  selector:
+    app: rabbitmq
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rabbitmq-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+spec:
+  selector:
+    matchLabels:
+      app: rabbitmq
+  serviceName: rabbitmq
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:3-management
+        ports:
+        - containerPort: 5672
+        - containerPort: 15672
+        volumeMounts:
+        - name: rabbitmq-data
+          mountPath: /var/lib/rabbitmq
+        env:
+        - name: RABBITMQ_ERLANG_COOKIE
+          value: secret
+        - name: RABBITMQ_DEFAULT_USER
+          value: rabbitmq
+        - name: RABBITMQ_DEFAULT_PASS
+          value: rabbitmq
+      volumes:
+      - name: rabbitmq-data
+        persistentVolumeClaim:
+          claimName: rabbitmq-pvc
+  volumeClaimTemplates:
+  - metadata:
+      name: rabbitmq-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
